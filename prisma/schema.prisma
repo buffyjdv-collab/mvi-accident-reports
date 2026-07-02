@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+model AccidentReport {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Header fields
+  crimeNo       String
+  section       String   // e.g. "U/S 106(1) BNS"
+  policeStation String   // PS name
+
+  // Field 1: Name and address of the officer from whom requisition is received
+  officerName    String
+  officerAddress String?
+
+  // Field 2: Date of receipt of the above by the Inspector of Motor vehicles
+  receiptDate    String
+  receiptDetails String? // e.g. "from Kumar PC 356 PS Husnabad"
+
+  // Field 3: Date, time and place of accident
+  accidentDate  String
+  accidentTime  String
+  accidentPlace String
+
+  // Field 4: Width of road and nature and brief description of the locality
+  roadDescription String
+
+  // Field 5: Vehicle details
+  chassisNo    String?
+  regNo        String?
+  vehicleClass String? // e.g. "Tractor and trailer"
+  vehicleMake  String? // e.g. "Swaraj 735 FE"
+  vehicleYear  String? // e.g. "05/2013"
+
+  // Field 6: Date time and place of inspection
+  inspectionDate  String
+  inspectionTime  String
+  inspectionPlace String
+
+  // Field 7: Date of last inspection and date of expiry of the present fitness certificate
+  lastInspectionDate    String?
+  fitnessCertExpiryDate String?
+
+  // Field 8: Details regarding the damages sustained by the vehicle
+  damagesDetails String?
+
+  // Field 9: Condition of brakes
+  brakeUnableToInspect   Boolean @default(false) // UCTD checkbox — when true, brakes couldn't be tested due to accident damage
+  footBrakeEfficiency   String? // e.g. "Efficient"
+  parkingBrakeEfficiency String? // e.g. "Efficient"
+  brakeEvenAction       String? // e.g. "Even Action"
+
+  // Field 10: Cause of failure of brakes - Hydraulic
+  hydraulicFluidLeak     String? // Want of fluid
+  hydraulicLeakage       String? // Leakage in the system
+  hydraulicBreakages     String? // Breakages in the system
+  hydraulicWornOut       String? // Worn out parts
+  hydraulicFailureOther  String? // Other notes
+
+  // Field 10: Cause of failure of brakes - Mechanical
+  mechanicalLackLubrication String? // Lack of lubrication
+  mechanicalSlackAdjustment String? // Slack in adjustment
+  mechanicalWornOut         String? // Worn out parts
+  mechanicalFailureOther    String? // Other notes
+
+  // Field 11: Parking brake failure cause
+  parkingBrakeLackLubrication  String?
+  parkingBrakeSlackness        String?
+  parkingBrakeWornOut          String?
+  parkingBrakeOtherReasons     String?
+
+  // Field 12: Steering/Handle excessive backlash
+  steeringBacklash String?
+
+  // Field 13: Condition of tyres
+  tyreCondition String?
+
+  // Field 14: Date of validity of permit
+  permitValidity String?
+
+  // Field 15: Insurance details
+  insuranceExpiryDate String?
+  insuranceCompany    String?
+  insurancePolicyNo   String?
+  insuranceCertificate String?
+
+  // Field 16: Name and address of the owner
+  ownerName    String?
+  ownerAddress String?
+
+  // Field 17: Name and address of the driver
+  driverName    String?
+  driverAddress String?
+
+  // Field 18: Particulars of driver's licence
+  driverLicenceDetails String?
+  driverLicenceNo      String?
+  driverLicenceValidUpto String?
+
+  // Field 19: Person involved in accident / injuries / persons killed
+  involvedPersonDetails String?
+
+  // Field 20: Name and address of legal heirs of deceased
+  legalHeirsDetails String?
+
+  // Field 21: Was accident due to mechanical defects
+  mechanicalDefectsOpinion String?
+
+  // Field 22: Was the vehicle on Trade Plate
+  tradePlateDetails String?
+
+  // Note section
+  vcrNo    String?
+  vcrDate  String?
+
+  // Copy to
+  copyTo String?
+
+  // Images (base64 data URLs — up to 2 accident/damage photos per report)
+  image1 String?
+  image2 String?
+
+  // Ownership (author of the report)
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model User {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("USER") // "USER" | "ADMIN"
+
+  reports AccidentReport[]
+}
+
+model AppSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
