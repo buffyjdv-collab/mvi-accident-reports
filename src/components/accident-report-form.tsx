@@ -308,6 +308,8 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
                   <SelectItem value="U/S 106(1) BNS">U/S 106(1) BNS</SelectItem>
                   <SelectItem value="U/S 106(2) BNS">U/S 106(2) BNS</SelectItem>
                   <SelectItem value="U/S 30(A)">U/S 30(A)</SelectItem>
+                  <SelectItem value="U/S 125(a) BNS">U/S 125(a) BNS</SelectItem>
+                  <SelectItem value="U/S 304(a) IPC">U/S 304(a) IPC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -331,7 +333,9 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem disabled value="__header_siddipet" className="font-semibold text-slate-500 uppercase text-xs tracking-wider">— Siddipet Division —</SelectItem>
-                  <SelectItem value="PS Siddipet (Urban)">PS Siddipet (Urban)</SelectItem>
+                  <SelectItem value="PS Siddipet 1 Town">PS Siddipet 1 Town</SelectItem>
+                  <SelectItem value="PS Siddipet 2 Town">PS Siddipet 2 Town</SelectItem>
+                  <SelectItem value="PS Siddipet 3 Town">PS Siddipet 3 Town</SelectItem>
                   <SelectItem value="PS Siddipet (Rural)">PS Siddipet (Rural)</SelectItem>
                   <SelectItem value="PS Dubbak">PS Dubbak</SelectItem>
                   <SelectItem value="PS Chinnakodur">PS Chinnakodur</SelectItem>
