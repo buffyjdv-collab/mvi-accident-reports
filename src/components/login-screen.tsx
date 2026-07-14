@@ -173,6 +173,9 @@ export default function LoginScreen() {
         <p className="text-center text-xs text-slate-500 mt-6">
           Government of India — Transport Department
         </p>
+        <p className="text-center text-[10px] text-slate-600 mt-2">
+          Build: {process.env.NEXT_PUBLIC_BUILD_TIME || 'dev'} · {process.env.NEXT_PUBLIC_GIT_SHA || 'local'}
+        </p>
       </div>
     </div>
   );

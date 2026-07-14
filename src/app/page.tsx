@@ -181,7 +181,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
             <p>Motor Vehicles Inspector — Accident Inspection Report System</p>
-            <p>Government of India — Transport Department</p>
+            <div className="flex items-center gap-3">
+              <p>Government of India — Transport Department</p>
+              <span className="text-slate-500 text-[10px]">
+                Build: {process.env.NEXT_PUBLIC_BUILD_TIME || 'dev'} · {process.env.NEXT_PUBLIC_GIT_SHA || 'local'}
+              </span>
+            </div>
           </div>
         </div>
       </footer>
