@@ -9,6 +9,7 @@ CREATE TABLE "AccidentReport" (
     "crimeNo" TEXT NOT NULL,
     "section" TEXT NOT NULL,
     "policeStation" TEXT NOT NULL,
+    "district" TEXT,
     "officerName" TEXT NOT NULL,
     "officerAddress" TEXT,
     "receiptDate" TEXT NOT NULL,
@@ -82,6 +83,10 @@ CREATE TABLE "User" (
     "name" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "role" TEXT NOT NULL DEFAULT 'USER',
+    "canViewReports" BOOLEAN NOT NULL DEFAULT true,
+    "canEditReports" BOOLEAN NOT NULL DEFAULT true,
+    "canPrintReports" BOOLEAN NOT NULL DEFAULT true,
+    "canDeleteReports" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
