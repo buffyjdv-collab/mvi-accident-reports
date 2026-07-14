@@ -29,9 +29,16 @@ import {
   ImagePlus,
   X,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/auth-provider';
 import { fileToCompressedDataUrl } from '@/lib/image-helper';
+import {
+  DISTRICT_NAMES,
+  getDivisionsForDistrict,
+  getStationsForDistrict,
+} from '@/lib/telangana-data';
 
 interface AccidentReportFormProps {
   onSubmitted: () => void;
@@ -62,6 +69,10 @@ export const UCTD_BRAKE_TEXT =
 
 export default function AccidentReportForm({ onSubmitted, editReport, onEditCancel }: AccidentReportFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  // ADMIN always has full access; otherwise check the per-user flag. This
+  // covers both creating new reports (POST) and editing existing ones (PUT).
+  const canEdit = user?.role === 'ADMIN' || !!user?.canEditReports;
   const [formData, setFormData] = useState<AccidentReportFormData>(getEmptyFormData());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [roadInspectionType, setRoadInspectionType] = useState<'police_station' | 'accident_site'>('police_station');
@@ -191,10 +202,10 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.crimeNo || !formData.section || !formData.policeStation) {
+    if (!formData.crimeNo || !formData.section || !formData.policeStation || !formData.district) {
       toast({
         title: 'Validation Error',
-        description: 'Crime No, Section, and Police Station are required.',
+        description: 'District, Crime No, Section, and Police Station are required.',
         variant: 'destructive',
       });
       return;
@@ -219,6 +230,14 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        // 403 = administrator has revoked edit permission since the page loaded.
+        if (res.status === 403) {
+          throw new Error(
+            err.error
+              ? `${err.error}. Please contact an administrator to request access.`
+              : 'Administrator Approval Required. Please contact an administrator to request access.'
+          );
+        }
         const msg = err.error || err.hint || (editingId ? 'Failed to update report' : 'Failed to create report');
         throw new Error(msg);
       }
@@ -247,6 +266,41 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
   };
 
   const isMoto = isMotorcycleClass(formData.vehicleClass);
+
+  // Permission gate: if the user can't edit/create reports, show the
+  // "Administrator Approval Required" notice instead of the form. This runs
+  // after all hooks above, so the Rules of Hooks are preserved.
+  if (!canEdit) {
+    return (
+      <div className="space-y-4">
+        {editingId && onEditCancel && (
+          <div>
+            <Button
+              variant="outline"
+              className="border-slate-300"
+              onClick={onEditCancel}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Back to Records
+            </Button>
+          </div>
+        )}
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-dashed border-amber-300 bg-amber-50/50 rounded-lg">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 mb-4">
+            <ShieldAlert className="h-7 w-7 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            Administrator Approval Required
+          </h3>
+          <p className="mt-1 text-sm text-slate-600 max-w-md">
+            You do not have permission to{' '}
+            {editingId ? 'edit accident reports' : 'create new accident reports'}.
+            Please contact an administrator to request access.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Big bold field title style
   const fieldTitle = 'text-base font-bold text-slate-800';
@@ -279,7 +333,38 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
           </p>
         </CardHeader>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="district" className="text-base font-bold text-slate-800">
+                District <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.district}
+                onValueChange={(value) => {
+                  // When the district changes, clear the police station and
+                  // reset the district-derived auto-fill fields so they don't
+                  // keep referencing the old district.
+                  updateField('district', value);
+                  updateField('policeStation', '');
+                  updateField('roadDescription', '');
+                  updateField('inspectionPlace', '');
+                  updateField('officerName', '');
+                  updateField('copyTo', `DTO office, ${value}`);
+                  setRoadInspectionType('police_station');
+                }}
+              >
+                <SelectTrigger className="border-slate-300">
+                  <SelectValue placeholder="Select District" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {DISTRICT_NAMES.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="crimeNo" className="text-base font-bold text-slate-800">
                 Crime No <span className="text-red-500">*</span>
@@ -320,49 +405,54 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
               <Select
                 value={formData.policeStation}
                 onValueChange={(value) => {
+                  const distName = formData.district || 'Siddipet';
                   updateField('policeStation', value);
                   setRoadInspectionType('police_station');
                   updateField('roadDescription', `Inspected the vehicle at ${value}`);
-                  updateField('officerName', `SHO, ${value}, Siddipet (Dist)`);
-                  updateField('copyTo', 'DTO office, Siddipet');
+                  updateField('officerName', `SHO, ${value}, ${distName} (Dist)`);
+                  updateField('copyTo', `DTO office, ${distName}`);
                   updateField('inspectionPlace', `Inspected the vehicle at ${value}`);
                 }}
               >
                 <SelectTrigger className="border-slate-300">
                   <SelectValue placeholder="Select Police Station" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem disabled value="__header_siddipet" className="font-semibold text-slate-500 uppercase text-xs tracking-wider">— Siddipet Division —</SelectItem>
-                  <SelectItem value="PS Siddipet 1 Town">PS Siddipet 1 Town</SelectItem>
-                  <SelectItem value="PS Siddipet 2 Town">PS Siddipet 2 Town</SelectItem>
-                  <SelectItem value="PS Siddipet 3 Town">PS Siddipet 3 Town</SelectItem>
-                  <SelectItem value="PS Siddipet (Rural)">PS Siddipet (Rural)</SelectItem>
-                  <SelectItem value="PS Dubbak">PS Dubbak</SelectItem>
-                  <SelectItem value="PS Chinnakodur">PS Chinnakodur</SelectItem>
-                  <SelectItem value="PS Nangnoor">PS Nangnoor</SelectItem>
-                  <SelectItem value="PS Thoguta">PS Thoguta</SelectItem>
-                  <SelectItem value="PS Mirdoddi">PS Mirdoddi</SelectItem>
-                  <SelectItem value="PS Doulthabad">PS Doulthabad</SelectItem>
-                  <SelectItem value="PS Komuravelli">PS Komuravelli</SelectItem>
-                  <SelectItem value="PS Cherial">PS Cherial</SelectItem>
-                  <SelectItem value="PS Narayanaraopet">PS Narayanaraopet</SelectItem>
-                  <SelectItem value="PS Akberpet Bhoompally">PS Akberpet Bhoompally</SelectItem>
-                  <SelectItem disabled value="__header_gajwel" className="font-semibold text-slate-500 uppercase text-xs tracking-wider">— Gajwel Division —</SelectItem>
-                  <SelectItem value="PS Gajwel">PS Gajwel</SelectItem>
-                  <SelectItem value="PS Kondapak">PS Kondapak</SelectItem>
-                  <SelectItem value="PS Kukunoorpally">PS Kukunoorpally</SelectItem>
-                  <SelectItem value="PS Jagdevpur">PS Jagdevpur</SelectItem>
-                  <SelectItem value="PS Wargal">PS Wargal</SelectItem>
-                  <SelectItem value="PS Mulug">PS Mulug</SelectItem>
-                  <SelectItem value="PS Markook">PS Markook</SelectItem>
-                  <SelectItem value="PS Raipole">PS Raipole</SelectItem>
-                  <SelectItem disabled value="__header_husnabad" className="font-semibold text-slate-500 uppercase text-xs tracking-wider">— Husnabad Division —</SelectItem>
-                  <SelectItem value="PS Husnabad">PS Husnabad</SelectItem>
-                  <SelectItem value="PS Koheda">PS Koheda</SelectItem>
-                  <SelectItem value="PS Bejjanki">PS Bejjanki</SelectItem>
-                  <SelectItem value="PS Akkannapet">PS Akkannapet</SelectItem>
-                  <SelectItem value="PS Dhoolmitta">PS Dhoolmitta</SelectItem>
-                  <SelectItem value="PS Maddur">PS Maddur</SelectItem>
+                <SelectContent className="max-h-72">
+                  {(() => {
+                    const divisions = getDivisionsForDistrict(formData.district);
+                    if (divisions && divisions.length > 0) {
+                      // Grouped by revenue division
+                      return divisions.flatMap((div, idx) => [
+                        <SelectItem
+                          key={`__hdr_${idx}`}
+                          disabled
+                          value={`__hdr_${idx}`}
+                          className="font-semibold text-slate-500 uppercase text-xs tracking-wider"
+                        >
+                          — {div.name} —
+                        </SelectItem>,
+                        ...div.stations.map((st) => (
+                          <SelectItem key={st} value={st}>
+                            {st}
+                          </SelectItem>
+                        )),
+                      ]);
+                    }
+                    // Flat list for single-division districts
+                    const stations = getStationsForDistrict(formData.district);
+                    if (stations.length === 0) {
+                      return (
+                        <SelectItem disabled value="__none" className="text-slate-400">
+                          Select a district first
+                        </SelectItem>
+                      );
+                    }
+                    return stations.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st}
+                      </SelectItem>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -1256,16 +1346,15 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
             <div className="space-y-2">
               <Label className={fieldTitle}>Copy to</Label>
               {(() => {
-                const distMatch = formData.officerName?.match(/\((\w+)\s*\(Dist\)\)/) || formData.officerName?.match(/(\w+)\s*\(Dist\)/);
-                const distName = distMatch ? distMatch[1] : '';
-                const isAutoFill = formData.copyTo === `DTO office, ${distName}` || formData.copyTo === '' || formData.copyTo === undefined || formData.copyTo === 'DTO office, Siddipet';
+                const distName = formData.district || 'Siddipet';
+                const isAutoFill = formData.copyTo === `DTO office, ${distName}` || formData.copyTo === '' || formData.copyTo === undefined;
                 return (
                   <>
                     <RadioGroup
                       value={isAutoFill ? 'auto' : 'other'}
                       onValueChange={(v) => {
                         if (v === 'auto') {
-                          updateField('copyTo', distName ? `DTO office, ${distName}` : 'DTO office, Siddipet');
+                          updateField('copyTo', `DTO office, ${distName}`);
                         } else {
                           updateField('copyTo', '');
                         }
@@ -1275,7 +1364,7 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="auto" id="ct-auto" />
                         <Label htmlFor="ct-auto" className="text-sm text-slate-600 cursor-pointer">
-                          DTO office{distName ? `, ${distName}` : ', Siddipet'}
+                          DTO office, {distName}
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2">

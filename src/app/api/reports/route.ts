@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUserFromRequest } from '@/lib/auth';
+import { getAuthUserFromRequest, permissionDeniedResponse } from '@/lib/auth';
 
 // GET /api/reports - List accident reports
-// - USER: only their own reports
-// - ADMIN: all reports
+// - USER: only their own reports (requires canViewReports)
+// - ADMIN: all reports (always allowed)
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthUserFromRequest(request);
@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
         { error: 'Authentication required. Please sign in.' },
         { status: 401 }
       );
+    }
+
+    // Per-user permission check (admin bypasses).
+    if (user.role !== 'ADMIN' && !user.canViewReports) {
+      return permissionDeniedResponse('view reports');
     }
 
     const where = user.role === 'ADMIN' ? {} : { userId: user.id };
@@ -39,6 +44,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/reports - Create a new accident report (authenticated, owned by user)
+// Creating a report is treated as an "edit" capability.
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthUserFromRequest(request);
@@ -49,12 +55,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Per-user permission check (admin bypasses).
+    if (user.role !== 'ADMIN' && !user.canEditReports) {
+      return permissionDeniedResponse('create reports');
+    }
+
     const body = await request.json();
     const report = await db.accidentReport.create({
       data: {
         crimeNo: body.crimeNo,
         section: body.section,
         policeStation: body.policeStation,
+        district: body.district || null,
         officerName: body.officerName,
         officerAddress: body.officerAddress || null,
         receiptDate: body.receiptDate,

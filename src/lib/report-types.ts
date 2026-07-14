@@ -7,6 +7,7 @@ export interface AccidentReport {
   crimeNo: string;
   section: string;
   policeStation: string;
+  district: string | null;
 
   // Field 1
   officerName: string;
@@ -126,6 +127,7 @@ export interface AccidentReportFormData {
   crimeNo: string;
   section: string;
   policeStation: string;
+  district: string;
   officerName: string;
   officerAddress: string;
   receiptDate: string;
@@ -192,6 +194,7 @@ export function getEmptyFormData(): AccidentReportFormData {
     crimeNo: '',
     section: 'U/S 106(1) BNS',
     policeStation: '',
+    district: 'Siddipet',
     officerName: '',
     officerAddress: '',
     receiptDate: '',
@@ -259,6 +262,7 @@ export function reportToFormData(report: AccidentReport): AccidentReportFormData
     crimeNo: report.crimeNo || '',
     section: report.section || '',
     policeStation: report.policeStation || '',
+    district: report.district || 'Siddipet',
     officerName: report.officerName || '',
     officerAddress: report.officerAddress || '',
     receiptDate: report.receiptDate || '',

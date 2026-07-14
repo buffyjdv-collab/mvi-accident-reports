@@ -3,7 +3,8 @@
 import React from 'react';
 import { AccidentReport } from '@/lib/report-types';
 import { Button } from '@/components/ui/button';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { useAuth } from '@/components/auth-provider';
 
 interface AccidentPrintViewProps {
   report: AccidentReport | null;
@@ -48,6 +49,10 @@ function CheckboxList({ items }: { items: { checked: boolean; label: string }[] 
 }
 
 export default function AccidentPrintView({ report, onBack }: AccidentPrintViewProps) {
+  const { user } = useAuth();
+  // ADMIN always has full access; otherwise check the per-user flag.
+  const canPrint = user?.role === 'ADMIN' || !!user?.canPrintReports;
+
   if (!report) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -58,6 +63,33 @@ export default function AccidentPrintView({ report, onBack }: AccidentPrintViewP
           <ArrowLeft className="h-4 w-4 mr-2" />
           Go to Records
         </Button>
+      </div>
+    );
+  }
+
+  // Permission gate: if the user can't print, show the approval-required
+  // notice instead of the printable form.
+  if (!canPrint) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <Button variant="outline" className="border-slate-300" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-dashed border-amber-300 bg-amber-50/50 rounded-lg">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 mb-4">
+            <ShieldAlert className="h-7 w-7 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            Administrator Approval Required
+          </h3>
+          <p className="mt-1 text-sm text-slate-600 max-w-md">
+            You do not have permission to print accident reports. Please
+            contact an administrator to request access.
+          </p>
+        </div>
       </div>
     );
   }
@@ -91,8 +123,8 @@ export default function AccidentPrintView({ report, onBack }: AccidentPrintViewP
           </h1>
         </div>
 
-        {/* Crime No / Section / PS Row */}
-        <div className="grid grid-cols-3 border-b border-slate-500">
+        {/* Crime No / Section / District / PS Row */}
+        <div className="grid grid-cols-4 border-b border-slate-500">
           <div className="border-r border-slate-400 px-3 py-2">
             <span className="text-xs font-semibold text-slate-600 uppercase block">Crime No</span>
             <span className="text-sm font-bold text-slate-900">{r.crimeNo}</span>
@@ -100,6 +132,10 @@ export default function AccidentPrintView({ report, onBack }: AccidentPrintViewP
           <div className="border-r border-slate-400 px-3 py-2">
             <span className="text-xs font-semibold text-slate-600 uppercase block">Section</span>
             <span className="text-sm font-bold text-slate-900">{r.section}</span>
+          </div>
+          <div className="border-r border-slate-400 px-3 py-2">
+            <span className="text-xs font-semibold text-slate-600 uppercase block">District</span>
+            <span className="text-sm font-bold text-slate-900">{r.district || '—'}</span>
           </div>
           <div className="px-3 py-2">
             <span className="text-xs font-semibold text-slate-600 uppercase block">Police Station</span>

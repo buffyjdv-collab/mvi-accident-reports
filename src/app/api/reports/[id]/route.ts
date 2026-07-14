@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUserFromRequest } from '@/lib/auth';
+import { getAuthUserFromRequest, permissionDeniedResponse } from '@/lib/auth';
 
 // GET /api/reports/[id] - Get a single accident report
-// Users can only read their own; admins can read any.
+// Users can only read their own (requires canViewReports); admins can read any.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,6 +15,11 @@ export async function GET(
         { error: 'Authentication required.' },
         { status: 401 }
       );
+    }
+
+    // Per-user permission check (admin bypasses).
+    if (user.role !== 'ADMIN' && !user.canViewReports) {
+      return permissionDeniedResponse('view reports');
     }
 
     const { id } = await params;
@@ -46,7 +51,7 @@ export async function GET(
   }
 }
 
-// PUT /api/reports/[id] - Update an accident report
+// PUT /api/reports/[id] - Update an accident report (requires canEditReports)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -58,6 +63,11 @@ export async function PUT(
         { error: 'Authentication required.' },
         { status: 401 }
       );
+    }
+
+    // Per-user permission check (admin bypasses).
+    if (user.role !== 'ADMIN' && !user.canEditReports) {
+      return permissionDeniedResponse('edit reports');
     }
 
     const { id } = await params;
@@ -84,6 +94,7 @@ export async function PUT(
         crimeNo: body.crimeNo,
         section: body.section,
         policeStation: body.policeStation,
+        district: body.district || null,
         officerName: body.officerName,
         officerAddress: body.officerAddress || null,
         receiptDate: body.receiptDate,
@@ -158,7 +169,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/reports/[id] - Delete an accident report
+// DELETE /api/reports/[id] - Delete an accident report (requires canDeleteReports)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -170,6 +181,11 @@ export async function DELETE(
         { error: 'Authentication required.' },
         { status: 401 }
       );
+    }
+
+    // Per-user permission check (admin bypasses).
+    if (user.role !== 'ADMIN' && !user.canDeleteReports) {
+      return permissionDeniedResponse('delete reports');
     }
 
     const { id } = await params;

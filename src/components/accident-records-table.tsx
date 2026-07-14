@@ -37,6 +37,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Eye,
   Trash2,
   Printer,
@@ -47,6 +54,8 @@ import {
   Loader2,
   FileText,
   Pencil,
+  Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth-provider';
@@ -82,11 +91,27 @@ export default function AccidentRecordsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // Filter dropdowns: by year (derived from accidentDate) and by district.
+  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterDistrict, setFilterDistrict] = useState<string>('all');
 
   const [viewReport, setViewReport] = useState<AccidentReport | null>(null);
   const [deleteReportId, setDeleteReportId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string; name: string } | null>(null);
+  // Tracks which action a user tried to perform without permission, so we can
+  // surface the "Administrator Approval Required" dialog.
+  const [lockedAction, setLockedAction] = useState<string | null>(null);
+
+  // Derive per-action permission flags. ADMINs always have full access.
+  const isAdmin = user?.role === 'ADMIN';
+  const canView = isAdmin || !!user?.canViewReports;
+  const canEdit = isAdmin || !!user?.canEditReports;
+  const canPrint = isAdmin || !!user?.canPrintReports;
+  const canDelete = isAdmin || !!user?.canDeleteReports;
+  // True when the user cannot view reports at all (either known client-side
+  // or returned as a 403 from the API). Replaces the table with a notice.
+  const viewDenied = (!!user && !canView) || lockedAction === 'view reports';
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -94,6 +119,13 @@ export default function AccidentRecordsTable({
       const res = await fetch('/api/reports');
       if (res.status === 401) {
         setReports([]);
+        return;
+      }
+      // 403 = administrator has revoked the user's view permission. Surface
+      // the "Administrator Approval Required" panel instead of an error toast.
+      if (res.status === 403) {
+        setReports([]);
+        setLockedAction('view reports');
         return;
       }
       if (!res.ok) {
@@ -116,14 +148,27 @@ export default function AccidentRecordsTable({
   }, [toast]);
 
   useEffect(() => {
+    // If we already know the user can't view, don't bother hitting the API —
+    // just surface the permission-denied panel.
+    if (user && !canView) {
+      setLoading(false);
+      return;
+    }
     fetchReports();
-  }, [fetchReports, refreshTrigger]);
+  }, [fetchReports, refreshTrigger, user, canView]);
 
   const handleDelete = async () => {
     if (!deleteReportId) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/reports/${deleteReportId}`, { method: 'DELETE' });
+      // 403 = administrator has revoked delete permission since the page loaded.
+      if (res.status === 403) {
+        const err = await res.json().catch(() => ({}));
+        setDeleteReportId(null);
+        setLockedAction(err.action || 'delete reports');
+        return;
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to delete report');
@@ -142,7 +187,32 @@ export default function AccidentRecordsTable({
     }
   };
 
+  // Derive the list of distinct years (from accidentDate) and districts
+  // present in the loaded reports, so the filter dropdowns only offer values
+  // that actually exist. Years are sorted descending.
+  const availableYears: string[] = Array.from(
+    new Set(
+      reports
+        .map((r) => (r.accidentDate ? String(r.accidentDate).slice(0, 4) : ''))
+        .filter((y) => y && /^\d{4}$/.test(y))
+    )
+  ).sort((a, b) => Number(b) - Number(a));
+
+  const availableDistricts: string[] = Array.from(
+    new Set(reports.map((r) => r.district).filter((d): d is string => !!d))
+  ).sort((a, b) => a.localeCompare(b));
+
   const filtered = reports.filter((r) => {
+    // Year filter: match the year portion of accidentDate (YYYY-MM-DD or similar).
+    if (filterYear !== 'all') {
+      const year = r.accidentDate ? String(r.accidentDate).slice(0, 4) : '';
+      if (year !== filterYear) return false;
+    }
+    // District filter.
+    if (filterDistrict !== 'all') {
+      if ((r.district || '') !== filterDistrict) return false;
+    }
+    // Free-text search.
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -204,32 +274,113 @@ export default function AccidentRecordsTable({
     }
   };
 
-  const isAdmin = user?.role === 'ADMIN';
-
   return (
     <div className="space-y-4">
-      {/* Search & Header */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder="Search by Crime No, PS, Reg No..."
-            className="pl-9 border-slate-300"
-          />
+      {viewDenied ? (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-dashed border-amber-300 bg-amber-50/50 rounded-lg">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 mb-4">
+            <ShieldAlert className="h-7 w-7 text-amber-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">
+            Administrator Approval Required
+          </h3>
+          <p className="mt-1 text-sm text-slate-600 max-w-md">
+            You do not have permission to view accident reports. Please
+            contact an administrator to request access.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-slate-600 bg-slate-100">
-            {filtered.length} report{filtered.length !== 1 ? 's' : ''}
-          </Badge>
-          {isAdmin && (
-            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-              Admin View — All users
+      ) : (
+        <>
+      {/* Search & Filters & Header */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search by Crime No, PS, Reg No..."
+              className="pl-9 border-slate-300"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-slate-600 bg-slate-100">
+              {filtered.length} report{filtered.length !== 1 ? 's' : ''}
             </Badge>
+            {isAdmin && (
+              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                Admin View — All users
+              </Badge>
+            )}
+          </div>
+        </div>
+        {/* Filter dropdowns: by year and by district. Only shown when there is
+            at least one value to filter by. Resetting to "all" clears the filter. */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+              Filter:
+            </span>
+          </div>
+          <div className="w-full sm:w-44">
+            <Select
+              value={filterYear}
+              onValueChange={(value) => {
+                setFilterYear(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="border-slate-300 h-9">
+                <SelectValue placeholder="All Years" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={y}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full sm:w-52">
+            <Select
+              value={filterDistrict}
+              onValueChange={(value) => {
+                setFilterDistrict(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="border-slate-300 h-9">
+                <SelectValue placeholder="All Districts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Districts</SelectItem>
+                {availableDistricts.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {(filterYear !== 'all' || filterDistrict !== 'all') && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-slate-500 hover:text-slate-700 h-9"
+              onClick={() => {
+                setFilterYear('all');
+                setFilterDistrict('all');
+                setCurrentPage(1);
+              }}
+            >
+              Clear filters
+            </Button>
           )}
         </div>
       </div>
@@ -269,6 +420,12 @@ export default function AccidentRecordsTable({
                     </TableHead>
                     <TableHead
                       className="cursor-pointer select-none font-semibold text-slate-700"
+                      onClick={() => handleSort('district')}
+                    >
+                      District <SortIcon field="district" />
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer select-none font-semibold text-slate-700"
                       onClick={() => handleSort('accidentDate')}
                     >
                       Accident Date <SortIcon field="accidentDate" />
@@ -295,6 +452,7 @@ export default function AccidentRecordsTable({
                         {report.crimeNo}
                       </TableCell>
                       <TableCell className="text-slate-600">{report.policeStation}</TableCell>
+                      <TableCell className="text-slate-600">{report.district || '—'}</TableCell>
                       <TableCell className="text-slate-600">
                         {formatDate(report.accidentDate)}
                       </TableCell>
@@ -328,24 +486,57 @@ export default function AccidentRecordsTable({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewReport(report)}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                canView
+                                  ? setViewReport(report)
+                                  : setLockedAction('view reports')
+                              }
+                              className={!canView ? 'text-slate-400' : ''}
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onEditReport(report)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onPrintReport(report)}>
-                              <Printer className="h-4 w-4 mr-2" />
-                              Print
+                              {!canView && <Lock className="h-3 w-3 ml-auto text-slate-400" />}
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => setDeleteReportId(report.id)}
-                              className="text-red-600 focus:text-red-600"
+                              onClick={() =>
+                                canEdit
+                                  ? onEditReport(report)
+                                  : setLockedAction('edit reports')
+                              }
+                              className={!canEdit ? 'text-slate-400' : ''}
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                              {!canEdit && <Lock className="h-3 w-3 ml-auto text-slate-400" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                canPrint
+                                  ? onPrintReport(report)
+                                  : setLockedAction('print reports')
+                              }
+                              className={!canPrint ? 'text-slate-400' : ''}
+                            >
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print
+                              {!canPrint && <Lock className="h-3 w-3 ml-auto text-slate-400" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                canDelete
+                                  ? setDeleteReportId(report.id)
+                                  : setLockedAction('delete reports')
+                              }
+                              className={
+                                canDelete
+                                  ? 'text-red-600 focus:text-red-600'
+                                  : 'text-slate-400'
+                              }
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
+                              {!canDelete && <Lock className="h-3 w-3 ml-auto text-slate-400" />}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -412,6 +603,8 @@ export default function AccidentRecordsTable({
           )}
         </>
       )}
+        </>
+      )}
 
       {/* View Dialog */}
       <Dialog open={!!viewReport} onOpenChange={(open) => !open && setViewReport(null)}>
@@ -432,6 +625,7 @@ export default function AccidentRecordsTable({
                 </h3>
                 <ViewFieldRow label="Crime No" value={viewReport.crimeNo} />
                 <ViewFieldRow label="Section" value={viewReport.section} />
+                <ViewFieldRow label="District" value={viewReport.district} />
                 <ViewFieldRow label="Police Station" value={viewReport.policeStation} />
                 {isAdmin && viewReport.user && (
                   <ViewFieldRow label="Author" value={`${viewReport.user.name} (${viewReport.user.email})`} />
@@ -644,6 +838,32 @@ export default function AccidentRecordsTable({
         onOpenChange={(open) => !open && setLightboxImage(null)}
         downloadName={lightboxImage?.name}
       />
+
+      {/* "Administrator Approval Required" notice — shown when a user
+          attempts an action (edit / print / delete) they don't have
+          permission for. */}
+      <AlertDialog
+        open={!!lockedAction && !viewDenied}
+        onOpenChange={(open) => !open && setLockedAction(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-600" />
+              Administrator Approval Required
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You do not have permission to {lockedAction}. Please contact an
+              administrator to request access to this action.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setLockedAction(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

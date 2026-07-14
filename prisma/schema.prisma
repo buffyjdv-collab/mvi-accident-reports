@@ -20,6 +20,7 @@ model AccidentReport {
   crimeNo       String
   section       String   // e.g. "U/S 106(1) BNS"
   policeStation String   // PS name
+  district      String?  // Telangana district (e.g. "Siddipet"); nullable for legacy rows
 
   // Field 1: Name and address of the officer from whom requisition is received
   officerName    String
@@ -145,6 +146,12 @@ model User {
   name         String
   passwordHash String
   role         String   @default("USER") // "USER" | "ADMIN"
+
+  // Per-user permissions (admin-controllable). ADMIN role always bypasses these.
+  canViewReports   Boolean @default(true)
+  canEditReports   Boolean @default(true)
+  canPrintReports  Boolean @default(true)
+  canDeleteReports Boolean @default(true)
 
   reports AccidentReport[]
 }
