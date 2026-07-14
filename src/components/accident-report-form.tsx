@@ -390,7 +390,7 @@ export default function AccidentReportForm({ onSubmitted, editReport, onEditCanc
                   <SelectValue placeholder="Select Section" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="U/S 125(a) & 106(1) BNS">U/S 125(a) & 106(1) BNS</SelectItem>
+                  <SelectItem value="U/S 106(1) BNS">U/S 106(1) BNS</SelectItem>
                   <SelectItem value="U/S 106(2) BNS">U/S 106(2) BNS</SelectItem>
                   <SelectItem value="U/S 30(A)">U/S 30(A)</SelectItem>
                   <SelectItem value="U/S 125(a) BNS">U/S 125(a) BNS</SelectItem>
