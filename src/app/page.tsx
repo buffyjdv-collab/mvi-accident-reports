@@ -7,7 +7,7 @@ import AccidentRecordsTable from '@/components/accident-records-table';
 import AccidentPrintView from '@/components/accident-print-view';
 import ProfileSettings from '@/components/profile-settings';
 import AdminUserManagement from '@/components/admin-user-management';
-import { FileText, List, Printer, ShieldCheck, LogOut, Loader2, UserCircle, UserCog, Settings } from 'lucide-react';
+import { FileText, List, Printer, LogOut, Loader2, UserCircle, UserCog, Settings } from 'lucide-react';
 import DatabaseStatus from '@/components/database-status';
 import { useAuth } from '@/components/auth-provider';
 import LoginScreen from '@/components/login-screen';
@@ -78,9 +78,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-slate-700 p-2 rounded-lg">
-                <ShieldCheck className="h-6 w-6 text-emerald-400" />
-              </div>
+              <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain rounded-lg" />
               <div>
                 <h1 className="text-lg font-bold tracking-tight">
                   Accident Inspection Report

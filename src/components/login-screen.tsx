@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ShieldCheck, Loader2, Lock, Mail, User as UserIcon } from 'lucide-react';
+import { Loader2, Lock, Mail, User as UserIcon } from 'lucide-react';
 
 export default function LoginScreen() {
   const { login, register } = useAuth();
@@ -45,9 +45,7 @@ export default function LoginScreen() {
       <div className="w-full max-w-md">
         {/* Logo / Title */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-700 shadow-lg mb-4">
-            <ShieldCheck className="h-9 w-9 text-emerald-400" />
-          </div>
+          <img src="/logo.png" alt="Transport Department Logo" className="w-24 h-24 object-contain mx-auto mb-3 drop-shadow-lg" />
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Accident Inspection Report
           </h1>
