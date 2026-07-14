@@ -47,11 +47,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // New self-registered users start with full permissions; ADMIN always
+    // has full access regardless of stored flags.
+    const isAdmin = user.role === 'ADMIN';
+    const perms = {
+      canViewReports: isAdmin ? true : user.canViewReports,
+      canEditReports: isAdmin ? true : user.canEditReports,
+      canPrintReports: isAdmin ? true : user.canPrintReports,
+      canDeleteReports: isAdmin ? true : user.canDeleteReports,
+    };
+
     const token = await signToken({
       sub: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
+      ...perms,
     });
 
     const res = NextResponse.json({
@@ -59,6 +70,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       name: user.name,
       role: user.role,
+      ...perms,
     });
 
     res.cookies.set(AUTH_COOKIE, token, {

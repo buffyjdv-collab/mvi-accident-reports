@@ -55,8 +55,10 @@ import {
   Trash2,
   Mail,
   KeyRound,
+  Lock,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
 
 interface AdminUser {
   id: string;
@@ -64,15 +66,97 @@ interface AdminUser {
   email: string;
   role: 'USER' | 'ADMIN';
   createdAt: string;
+  canViewReports: boolean;
+  canEditReports: boolean;
+  canPrintReports: boolean;
+  canDeleteReports: boolean;
   _count: { reports: number };
 }
+
+type PermissionFlags = {
+  canViewReports: boolean;
+  canEditReports: boolean;
+  canPrintReports: boolean;
+  canDeleteReports: boolean;
+};
 
 type EditForm = {
   name: string;
   email: string;
   role: 'USER' | 'ADMIN';
   password: string;
-};
+} & PermissionFlags;
+
+/** A single permission row: label + description + on/off switch. */
+function PermissionToggle({
+  label,
+  description,
+  checked,
+  disabled,
+  onCheckedChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (v: boolean) => void;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 ${
+        disabled ? 'opacity-60' : ''
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-700">{label}</p>
+        <p className="text-[11px] text-slate-400 truncate">{description}</p>
+      </div>
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
+  );
+}
+
+/** Compact read-only permission chips used in the users table. */
+function PermissionChips({ user }: { user: AdminUser }) {
+  if (user.role === 'ADMIN') {
+    return (
+      <span className="inline-flex items-center text-[11px] font-medium text-amber-700">
+        <ShieldCheck className="h-3 w-3 mr-1" />
+        Full access
+      </span>
+    );
+  }
+  const flags: { key: keyof PermissionFlags; label: string }[] = [
+    { key: 'canViewReports', label: 'View' },
+    { key: 'canEditReports', label: 'Edit' },
+    { key: 'canPrintReports', label: 'Print' },
+    { key: 'canDeleteReports', label: 'Delete' },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1">
+      {flags.map((f) => {
+        const on = user[f.key];
+        return (
+          <span
+            key={f.key}
+            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+              on
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-red-50 text-red-600 border-red-200'
+            }`}
+            title={on ? `Can ${f.label.toLowerCase()}` : `Cannot ${f.label.toLowerCase()}`}
+          >
+            {on ? f.label : <span className="line-through">{f.label}</span>}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AdminUserManagement() {
   const { user: currentUser } = useAuth();
@@ -82,11 +166,20 @@ export default function AdminUserManagement() {
 
   // Add-user dialog
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({
+  const [addForm, setAddForm] = useState<{
+    name: string;
+    email: string;
+    password: string;
+    role: 'USER' | 'ADMIN';
+  } & PermissionFlags>({
     name: '',
     email: '',
     password: '',
-    role: 'USER' as 'USER' | 'ADMIN',
+    role: 'USER',
+    canViewReports: true,
+    canEditReports: true,
+    canPrintReports: true,
+    canDeleteReports: true,
   });
   const [addSaving, setAddSaving] = useState(false);
 
@@ -97,6 +190,10 @@ export default function AdminUserManagement() {
     email: '',
     role: 'USER',
     password: '',
+    canViewReports: true,
+    canEditReports: true,
+    canPrintReports: true,
+    canDeleteReports: true,
   });
   const [editSaving, setEditSaving] = useState(false);
 
@@ -127,7 +224,16 @@ export default function AdminUserManagement() {
   }, [fetchUsers]);
 
   const openAdd = () => {
-    setAddForm({ name: '', email: '', password: '', role: 'USER' });
+    setAddForm({
+      name: '',
+      email: '',
+      password: '',
+      role: 'USER',
+      canViewReports: true,
+      canEditReports: true,
+      canPrintReports: true,
+      canDeleteReports: true,
+    });
     setAddOpen(true);
   };
 
@@ -166,6 +272,10 @@ export default function AdminUserManagement() {
       email: u.email,
       role: u.role,
       password: '',
+      canViewReports: u.canViewReports,
+      canEditReports: u.canEditReports,
+      canPrintReports: u.canPrintReports,
+      canDeleteReports: u.canDeleteReports,
     });
   };
 
@@ -174,10 +284,14 @@ export default function AdminUserManagement() {
     if (!editTarget) return;
     setEditSaving(true);
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | boolean> = {
         name: editForm.name,
         email: editForm.email,
         role: editForm.role,
+        canViewReports: editForm.canViewReports,
+        canEditReports: editForm.canEditReports,
+        canPrintReports: editForm.canPrintReports,
+        canDeleteReports: editForm.canDeleteReports,
       };
       if (editForm.password) payload.password = editForm.password;
       const res = await fetch(`/api/admin/users/${editTarget.id}`, {
@@ -295,9 +409,10 @@ export default function AdminUserManagement() {
             <Table>
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
-                  <TableHead className="w-[30%]">Name</TableHead>
-                  <TableHead className="w-[35%]">Email</TableHead>
-                  <TableHead className="w-[15%]">Role</TableHead>
+                  <TableHead className="w-[22%]">Name</TableHead>
+                  <TableHead className="w-[22%]">Email</TableHead>
+                  <TableHead className="w-[9%]">Role</TableHead>
+                  <TableHead className="w-[27%]">Permissions</TableHead>
                   <TableHead className="w-[10%] text-right">Reports</TableHead>
                   <TableHead className="w-[10%] text-right">Actions</TableHead>
                 </TableRow>
@@ -305,14 +420,14 @@ export default function AdminUserManagement() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10">
+                    <TableCell colSpan={6} className="text-center py-10">
                       <Loader2 className="h-5 w-5 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center py-10 text-slate-500"
                     >
                       No users found.
@@ -355,6 +470,9 @@ export default function AdminUserManagement() {
                               USER
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <PermissionChips user={u} />
                         </TableCell>
                         <TableCell className="text-right text-slate-600">
                           {u._count.reports}
@@ -468,6 +586,58 @@ export default function AdminUserManagement() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Permissions */}
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <div className="flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">
+                  Report Permissions
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {addForm.role === 'ADMIN'
+                  ? 'Administrators always have full access to all reports.'
+                  : 'Control which actions this user can perform on accident reports. Disabled actions show "Administrator Approval Required".'}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <PermissionToggle
+                  label="View"
+                  description="See & open reports"
+                  checked={addForm.canViewReports}
+                  disabled={addForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setAddForm((f) => ({ ...f, canViewReports: v }))
+                  }
+                />
+                <PermissionToggle
+                  label="Edit"
+                  description="Create & edit reports"
+                  checked={addForm.canEditReports}
+                  disabled={addForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setAddForm((f) => ({ ...f, canEditReports: v }))
+                  }
+                />
+                <PermissionToggle
+                  label="Print"
+                  description="Print reports"
+                  checked={addForm.canPrintReports}
+                  disabled={addForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setAddForm((f) => ({ ...f, canPrintReports: v }))
+                  }
+                />
+                <PermissionToggle
+                  label="Delete"
+                  description="Delete reports"
+                  checked={addForm.canDeleteReports}
+                  disabled={addForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setAddForm((f) => ({ ...f, canDeleteReports: v }))
+                  }
+                />
+              </div>
+            </div>
             <DialogFooter>
               <Button
                 type="button"
@@ -544,6 +714,58 @@ export default function AdminUserManagement() {
                   <SelectItem value="ADMIN">ADMIN</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            {/* Permissions */}
+            <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <div className="flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">
+                  Report Permissions
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {editForm.role === 'ADMIN'
+                  ? 'Administrators always have full access to all reports.'
+                  : 'Control which actions this user can perform on accident reports. Disabled actions show "Administrator Approval Required".'}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <PermissionToggle
+                  label="View"
+                  description="See & open reports"
+                  checked={editForm.canViewReports}
+                  disabled={editForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setEditForm((f) => ({ ...f, canViewReports: v }))
+                  }
+                />
+                <PermissionToggle
+                  label="Edit"
+                  description="Create & edit reports"
+                  checked={editForm.canEditReports}
+                  disabled={editForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setEditForm((f) => ({ ...f, canEditReports: v }))
+                  }
+                />
+                <PermissionToggle
+                  label="Print"
+                  description="Print reports"
+                  checked={editForm.canPrintReports}
+                  disabled={editForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setEditForm((f) => ({ ...f, canPrintReports: v }))
+                  }
+                />
+                <PermissionToggle
+                  label="Delete"
+                  description="Delete reports"
+                  checked={editForm.canDeleteReports}
+                  disabled={editForm.role === 'ADMIN'}
+                  onCheckedChange={(v) =>
+                    setEditForm((f) => ({ ...f, canDeleteReports: v }))
+                  }
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-password">

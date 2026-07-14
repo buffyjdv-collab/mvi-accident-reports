@@ -7,6 +7,10 @@ export interface AuthUser {
   email: string;
   name: string;
   role: 'USER' | 'ADMIN';
+  canViewReports: boolean;
+  canEditReports: boolean;
+  canPrintReports: boolean;
+  canDeleteReports: boolean;
 }
 
 interface AuthContextValue {

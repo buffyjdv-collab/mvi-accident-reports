@@ -44,6 +44,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
       email?: string;
       role?: string;
       passwordHash?: string;
+      canViewReports?: boolean;
+      canEditReports?: boolean;
+      canPrintReports?: boolean;
+      canDeleteReports?: boolean;
     } = {};
 
     if (typeof body.name === 'string' && body.name.trim()) {
@@ -92,6 +96,27 @@ export async function PUT(request: NextRequest, { params }: Params) {
       data.role = body.role;
     }
 
+    // Determine the effective role after this update, so we can force the
+    // permission flags to `true` for admins.
+    const effectiveRole = data.role ?? target.role;
+
+    // Permission flags. ADMINs always have full access — their flags are
+    // forced to `true`. For USERs, only update a flag if the client
+    // explicitly sent a boolean value.
+    const setFlag = (sent: unknown, key: 'canViewReports' | 'canEditReports' | 'canPrintReports' | 'canDeleteReports') => {
+      if (effectiveRole === 'ADMIN') {
+        data[key] = true;
+        return;
+      }
+      if (typeof sent === 'boolean') {
+        data[key] = sent;
+      }
+    };
+    setFlag(body.canViewReports, 'canViewReports');
+    setFlag(body.canEditReports, 'canEditReports');
+    setFlag(body.canPrintReports, 'canPrintReports');
+    setFlag(body.canDeleteReports, 'canDeleteReports');
+
     if (typeof body.password === 'string' && body.password.length > 0) {
       if (body.password.length < 6) {
         return NextResponse.json(
@@ -111,6 +136,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
         email: true,
         role: true,
         createdAt: true,
+        canViewReports: true,
+        canEditReports: true,
+        canPrintReports: true,
+        canDeleteReports: true,
         _count: { select: { reports: true } },
       },
     });

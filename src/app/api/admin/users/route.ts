@@ -28,6 +28,10 @@ export async function GET(request: NextRequest) {
         email: true,
         role: true,
         createdAt: true,
+        canViewReports: true,
+        canEditReports: true,
+        canPrintReports: true,
+        canDeleteReports: true,
         _count: { select: { reports: true } },
       },
     });
@@ -59,7 +63,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, password, role } = await request.json();
+    const {
+      name,
+      email,
+      password,
+      role,
+      canViewReports,
+      canEditReports,
+      canPrintReports,
+      canDeleteReports,
+    } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
@@ -95,6 +108,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse permission flags from the request body. A flag is `true` unless
+    // the client explicitly sent `false`. ADMINs always have full access, so
+    // the stored flags are forced to `true` for admins regardless of input.
+    const parseFlag = (v: unknown): boolean => v !== false;
+    const permFlags = {
+      canViewReports: finalRole === 'ADMIN' ? true : parseFlag(canViewReports),
+      canEditReports: finalRole === 'ADMIN' ? true : parseFlag(canEditReports),
+      canPrintReports: finalRole === 'ADMIN' ? true : parseFlag(canPrintReports),
+      canDeleteReports: finalRole === 'ADMIN' ? true : parseFlag(canDeleteReports),
+    };
+
     const passwordHash = await bcrypt.hash(password, 10);
     const created = await db.user.create({
       data: {
@@ -102,6 +126,7 @@ export async function POST(request: NextRequest) {
         email: normalizedEmail,
         passwordHash,
         role: finalRole,
+        ...permFlags,
       },
       select: {
         id: true,
@@ -109,6 +134,10 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         createdAt: true,
+        canViewReports: true,
+        canEditReports: true,
+        canPrintReports: true,
+        canDeleteReports: true,
         _count: { select: { reports: true } },
       },
     });

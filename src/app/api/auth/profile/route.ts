@@ -56,18 +56,43 @@ export async function PUT(request: NextRequest) {
     const updated = await db.user.update({
       where: { id: user.id },
       data: { name: trimmedName, email: normalizedEmail },
-      select: { id: true, name: true, email: true, role: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        canViewReports: true,
+        canEditReports: true,
+        canPrintReports: true,
+        canDeleteReports: true,
+      },
     });
 
-    // Re-sign the JWT so name/email in the token stay fresh
+    // ADMIN always has full permissions; users get their stored flags.
+    const isAdmin = updated.role === 'ADMIN';
+    const perms = {
+      canViewReports: isAdmin ? true : updated.canViewReports,
+      canEditReports: isAdmin ? true : updated.canEditReports,
+      canPrintReports: isAdmin ? true : updated.canPrintReports,
+      canDeleteReports: isAdmin ? true : updated.canDeleteReports,
+    };
+
+    // Re-sign the JWT so name/email and permissions in the token stay fresh
     const token = await signToken({
       sub: updated.id,
       email: updated.email,
       name: updated.name,
       role: updated.role,
+      ...perms,
     });
 
-    const res = NextResponse.json(updated);
+    const res = NextResponse.json({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.role,
+      ...perms,
+    });
     res.cookies.set(AUTH_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
