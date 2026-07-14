@@ -78,7 +78,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain rounded-lg" />
+              <img src="/logo.png?v=2" alt="Logo" className="h-10 w-10 object-contain rounded-lg" />
               <div>
                 <h1 className="text-lg font-bold tracking-tight">
                   Accident Inspection Report

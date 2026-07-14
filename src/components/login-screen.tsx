@@ -45,7 +45,7 @@ export default function LoginScreen() {
       <div className="w-full max-w-md">
         {/* Logo / Title */}
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="Transport Department Logo" className="w-24 h-24 object-contain mx-auto mb-3 drop-shadow-lg" />
+          <img src="/logo.png?v=2" alt="Transport Department Logo" className="w-24 h-24 object-contain mx-auto mb-3 drop-shadow-lg" />
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Accident Inspection Report
           </h1>
