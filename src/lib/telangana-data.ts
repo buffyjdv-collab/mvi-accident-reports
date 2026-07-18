@@ -41,6 +41,7 @@ export const TELANGANA_DISTRICTS: DistrictData[] = [
           'PS Mirdoddi',
           'PS Doulthabad',
           'PS Komuravelli',
+          'PS Rajgopalpet',
           'PS Cherial',
           'PS Narayanaraopet',
           'PS Akberpet Bhoompally',
