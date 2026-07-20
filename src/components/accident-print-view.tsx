@@ -118,7 +118,7 @@ export default function AccidentPrintView({ report, onBack }: AccidentPrintViewP
       <div className="print-form border border-slate-500 bg-white max-w-4xl mx-auto">
         {/* Header */}
         <div className="border-b border-slate-500 p-4 text-center">
-          <img src="/logo.png?v=2" alt="Logo" className="h-16 w-16 object-contain mx-auto mb-2" />
+          <img src="" alt="Logo" className="h-16 w-16 object-contain mx-auto mb-2" />
           <h1 className="text-base font-bold text-slate-900 uppercase tracking-wide">
             Accident Report from Inspector of Motor Vehicles
           </h1>
