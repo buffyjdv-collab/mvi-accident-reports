@@ -50,7 +50,7 @@ export default function LoginScreen() {
             Accident Inspection Report
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Motor Vehicles Inspector — Report Management System
+            
           </p>
         </div>
 
@@ -162,16 +162,16 @@ export default function LoginScreen() {
 
             {mode === 'login' && (
               <div className="mt-6 pt-4 border-t border-slate-700 text-xs text-slate-500 text-center">
-                <p className="font-medium text-slate-400">Default admin credentials:</p>
-                <p className="mt-1">Email: <code className="text-slate-300">admin@mvi.local</code></p>
-                <p>Password: <code className="text-slate-300">admin123</code></p>
+                <p className="font-medium text-slate-400"></p>
+                <p className="mt-1">Email: <code className="text-slate-300"></code></p>
+                <p>Password: <code className="text-slate-300"></code></p>
               </div>
             )}
           </CardContent>
         </Card>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          Government of India — Transport Department
+          .
         </p>
         <p className="text-center text-[10px] text-slate-600 mt-2">
           Build: {process.env.NEXT_PUBLIC_BUILD_TIME || 'dev'} · {process.env.NEXT_PUBLIC_GIT_SHA || 'local'}
